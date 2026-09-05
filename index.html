@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Car Studio | Premium Configurator</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Custom Styles -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --panel-bg: rgba(15, 15, 17, 0.75);
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --accent: #3b82f6;
+            --accent-hover: #60a5fa;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #050505;
+            color: var(--text-main);
+            overflow: hidden; 
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        #webgl-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            pointer-events: none;
+        }
+
+        .interactive {
+            pointer-events: auto;
+        }
+
+        .glass-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--panel-border);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px; width: 16px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.2);
+            border-radius: 2px;
+        }
+        input[type=range]:focus { outline: none; }
+
+        .color-swatch {
+            width: 40px; height: 40px;
+            border-radius: 50%; cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+        }
+        .color-swatch:hover { transform: scale(1.1); }
+        .color-swatch.active {
+            border-color: #fff; transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(255,255,255,0.3), inset 0 2px 4px rgba(0,0,0,0.4);
+        }
+
+        .finish-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.2s ease;
+        }
+        .finish-btn:hover { background: rgba(255,255,255,0.1); }
+        .finish-btn.active { background: var(--accent); border-color: var(--accent-hover); }
+
+        .nav-item { color: var(--text-muted); transition: all 0.2s; border-left: 2px solid transparent; }
+        .nav-item:hover { color: var(--text-main); background: rgba(255,255,255,0.05); }
+        .nav-item.active { color: var(--text-main); border-left-color: var(--accent); background: rgba(255,255,255,0.05); }
+
+        .material-item {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: all 0.2s;
+        }
+        .material-item:hover { background: rgba(255,255,255,0.08); }
+        .material-item.active { background: rgba(59, 130, 246, 0.2); border-color: var(--accent); }
+
+        #dropzone.dragover {
+            border-color: var(--accent);
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .toast-enter { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        #loading-screen, #modal-library {
+            z-index: 100;
+            background: #050505;
+            transition: opacity 0.4s ease;
+        }
+        
+        .spinner {
+            width: 40px; height: 40px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-radius: 50%; border-top-color: var(--accent);
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* Cursor hints */
+        .picking-mode { cursor: crosshair !important; }
+    </style>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <!-- Library Modal (Shown on startup or when changing cars) -->
+    <div id="modal-library" class="absolute inset-0 flex items-center justify-center interactive z-[150] bg-black/90 backdrop-blur-md overflow-y-auto">
+        <div class="max-w-5xl w-full mx-auto p-6 flex flex-col min-h-screen justify-center">
+            
+            <div class="flex justify-between items-end mb-8 border-b border-white/10 pb-4">
+                <div>
+                    <h2 class="text-3xl font-light tracking-widest text-white mb-2">VEHICLE LIBRARY</h2>
+                    <p class="text-gray-400">Select a preloaded vehicle or upload your own 3D model to begin.</p>
+                </div>
+                <button id="btn-close-library" class="hidden px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition">Cancel</button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                
+                <!-- Preloaded Vehicles -->
+                <div class="space-y-4">
+                    <h3 class="text-sm font-semibold text-gray-500 tracking-wider uppercase mb-4">Preloaded Models</h3>
+                    
+                    <a href="./assets/models/car.glb"><button class="lib-btn w-full text-left bg-[#111] hover:bg-[#1a1a1c] border border-white/10 rounded-xl p-4 flex gap-4 transition group" data-type="preloaded" data-url="./assets/models/car.glb" data-name="car.glb">
+                        <div class="w-24 h-16 bg-gray-800 rounded-lg overflow-hidden flex items-center justify-center border border-white/5">
+                            <i data-lucide="car-front" class="text-gray-500 w-8 h-8 group-hover:text-blue-400 transition"></i>
+                        </div>
+                        <div class="flex flex-col justify-center">
+                            <h4 class="text-white font-medium text-lg">car.glb</h4>
+                            <p class="text-sm text-gray-400">Default Project Vehicle</p>
+                        </div>
+                    </button></a>
+
+                    <button class="lib-btn w-full text-left bg-[#111] hover:bg-[#1a1a1c] border border-white/10 rounded-xl p-4 flex gap-4 transition group" data-type="preloaded" data-url="./assets/models/sports_car.glb" data-name="sports_car.glb">
+                        <div class="w-24 h-16 bg-gray-800 rounded-lg overflow-hidden flex items-center justify-center border border-white/5">
+                            <i data-lucide="car" class="text-gray-500 w-8 h-8 group-hover:text-blue-400 transition"></i>
+                        </div>
+                        <div class="flex flex-col justify-center">
+                            <h4 class="text-white font-medium text-lg">sports_car.glb</h4>
+                            <p class="text-sm text-gray-400">Additional Preloaded Model</p>
+                        </div>
+                    </button>
+
+                    <button class="lib-btn w-full text-left bg-[#111] hover:bg-[#1a1a1c] border border-white/10 rounded-xl p-4 flex gap-4 transition group" data-type="fallback" data-id="fallback">
+                        <div class="w-24 h-16 bg-gray-800 rounded-lg overflow-hidden flex items-center justify-center border border-white/5">
+                            <i data-lucide="box" class="text-gray-500 w-8 h-8 group-hover:text-blue-400 transition"></i>
+                        </div>
+                        <div class="flex flex-col justify-center">
+                            <h4 class="text-white font-medium text-lg">Procedural Concept</h4>
+                            <p class="text-sm text-gray-400">Generated Fallback Asset</p>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- Upload Custom Model -->
+                <div class="space-y-4 h-full flex flex-col">
+                    <h3 class="text-sm font-semibold text-gray-500 tracking-wider uppercase mb-4">Custom Upload</h3>
+                    
+                    <div id="dropzone" class="flex-1 min-h-[200px] border-2 border-dashed border-white/20 rounded-xl bg-blue-500/5 flex flex-col items-center justify-center p-8 text-center transition-colors hover:bg-blue-500/10 cursor-pointer relative overflow-hidden">
+                        <input type="file" id="file-upload" accept=".glb,.gltf" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                        
+                        <div class="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mb-4 text-blue-400 border border-blue-500/30">
+                            <i data-lucide="upload-cloud" class="w-8 h-8"></i>
+                        </div>
+                        <h4 class="text-white font-medium text-lg mb-1">Upload 3D Model</h4>
+                        <p class="text-sm text-blue-400 font-medium mb-1">Recommended: GLB</p>
+                        <p class="text-xs text-gray-500 mb-4">Supported: GLB / GLTF</p>
+                        
+                        <div class="mt-2 flex items-center gap-2 text-xs text-gray-500 text-left max-w-xs mx-auto">
+                            <i data-lucide="info" class="w-8 h-8 shrink-0"></i>
+                            <span>GLB is recommended because the model, materials and textures can be packaged into a single file.</span>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="absolute inset-0 flex flex-col items-center justify-center interactive hidden">
+        <div class="spinner mb-6"></div>
+        <h2 class="text-2xl font-light tracking-widest text-white mb-2" id="loading-title">LOADING STUDIO</h2>
+        <p id="loading-text" class="text-sm text-gray-400">Processing Geometries...</p>
+        <div class="w-64 h-1 bg-gray-800 rounded mt-6 overflow-hidden">
+            <div id="loading-bar" class="h-full bg-blue-500 w-0 transition-all duration-300"></div>
+        </div>
+        
+        <button id="btn-cancel-load" class="mt-8 px-6 py-2 border border-white/20 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/10 transition hidden">
+            Cancel & Return
+        </button>
+    </div>
+
+    <!-- WebGL Canvas Container -->
+    <div id="webgl-container"></div>
+
+    <!-- UI Layer -->
+    <div id="ui-layer" class="opacity-0 transition-opacity duration-700" style="display: none;">
+        
+        <!-- Top Bar -->
+        <header class="glass-panel interactive flex justify-between items-center px-6 py-4 mx-4 mt-4 rounded-xl">
+            <div class="flex items-center gap-3">
+                <i data-lucide="box" class="text-blue-500 w-6 h-6"></i>
+                <h1 class="text-lg font-semibold tracking-wide">3D CAR STUDIO</h1>
+            </div>
+            
+            <div class="hidden md:flex items-center gap-2">
+                <button id="btn-library" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-1.5 transition text-sm font-medium shadow-lg shadow-blue-500/20">
+                    <i data-lucide="library" class="w-4 h-4"></i>
+                    <span>Vehicle Library</span>
+                </button>
+                <div class="bg-black/40 rounded-lg px-4 py-1 border border-white/10 flex flex-col justify-center min-w-[160px]">
+                    <span id="current-vehicle-source" class="text-[9px] text-gray-500 uppercase tracking-widest font-semibold">Source</span>
+                    <span id="current-vehicle-name" class="text-sm font-medium text-white truncate leading-tight">Loading...</span>
+                </div>
+            </div>
+
+            <div class="flex gap-4">
+                <button id="btn-ar" class="flex items-center gap-2 text-sm text-gray-300 hover:text-white transition bg-white/5 px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/10">
+                    <i data-lucide="smartphone" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">AR Preview</span>
+                </button>
+                <button id="btn-save" class="flex items-center gap-2 text-sm text-gray-300 hover:text-white transition bg-white/5 px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/10">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Save Config</span>
+                </button>
+                <button id="btn-fullscreen" class="text-gray-400 hover:text-white transition">
+                    <i data-lucide="maximize" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <main class="flex-1 flex overflow-hidden relative">
+            
+            <!-- Left Sidebar (Categories) -->
+            <aside class="w-16 md:w-64 interactive flex flex-col justify-center my-auto ml-4">
+                <div class="glass-panel rounded-xl py-4 flex flex-col gap-2">
+                    <button class="nav-item active flex items-center gap-4 px-4 md:px-6 py-3 w-full text-left" data-target="panel-parts">
+                        <i data-lucide="layers" class="w-5 h-5"></i>
+                        <span class="hidden md:block font-medium text-sm">Model Parts</span>
+                    </button>
+                    <div class="h-px bg-white/10 w-3/4 mx-auto my-1"></div>
+                    <button class="nav-item flex items-center gap-4 px-4 md:px-6 py-3 w-full text-left" data-target="panel-paint">
+                        <i data-lucide="palette" class="w-5 h-5"></i>
+                        <span class="hidden md:block font-medium text-sm">Paint & Color</span>
+                    </button>
+                    <button class="nav-item flex items-center gap-4 px-4 md:px-6 py-3 w-full text-left" data-target="panel-finish">
+                        <i data-lucide="sparkles" class="w-5 h-5"></i>
+                        <span class="hidden md:block font-medium text-sm">Finishes</span>
+                    </button>
+                    <button class="nav-item flex items-center gap-4 px-4 md:px-6 py-3 w-full text-left" data-target="panel-materials">
+                        <i data-lucide="sliders" class="w-5 h-5"></i>
+                        <span class="hidden md:block font-medium text-sm">Advanced</span>
+                    </button>
+                    <div class="h-px bg-white/10 w-3/4 mx-auto my-1"></div>
+                    <button class="nav-item flex items-center gap-4 px-4 md:px-6 py-3 w-full text-left" data-target="panel-environment">
+                        <i data-lucide="sun" class="w-5 h-5"></i>
+                        <span class="hidden md:block font-medium text-sm">Lighting</span>
+                    </button>
+                    <button class="nav-item flex items-center gap-4 px-4 md:px-6 py-3 w-full text-left" data-target="panel-configs">
+                        <i data-lucide="folder-clock" class="w-5 h-5"></i>
+                        <span class="hidden md:block font-medium text-sm">History</span>
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Right Sidebar (Dynamic Panels) -->
+            <aside class="absolute right-4 top-1/2 -translate-y-1/2 w-72 md:w-80 h-auto max-h-[75vh] interactive flex flex-col">
+                <div class="glass-panel rounded-xl p-5 flex flex-col h-full overflow-y-auto">
+                    
+                    <!-- Panel: Parts / Materials -->
+                    <div id="panel-parts" class="config-panel block">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xs font-semibold text-gray-400 tracking-wider uppercase">Material Selection</h3>
+                            <button id="btn-picker" class="text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 bg-blue-500/10 px-2 py-1 rounded">
+                                <i data-lucide="mouse-pointer-click" class="w-3 h-3"></i> Pick on Model
+                            </button>
+                        </div>
+                        
+                        <div id="picker-hint" class="hidden mb-4 p-3 bg-blue-500/20 border border-blue-500/40 rounded-lg text-sm text-blue-200 flex gap-2">
+                            <i data-lucide="info" class="w-5 h-5 shrink-0"></i>
+                            <p>Click on any part of the 3D vehicle to select its material for customization.</p>
+                        </div>
+
+                        <div class="text-xs text-gray-500 mb-2">Detected Materials:</div>
+                        <div id="materials-list" class="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
+                            <p class="text-sm text-gray-500 italic text-center py-4">Loading materials...</p>
+                        </div>
+                    </div>
+
+                    <!-- Panel: Paint -->
+                    <div id="panel-paint" class="config-panel hidden">
+                        <h3 class="text-xs font-semibold text-gray-400 tracking-wider mb-4 uppercase">Color applied to: <span id="label-paint-target" class="text-white normal-case">Body</span></h3>
+                        <div class="grid grid-cols-4 gap-3" id="color-grid"></div>
+                        
+                        <div class="mt-6 pt-6 border-t border-white/10">
+                            <h3 class="text-xs font-semibold text-gray-400 tracking-wider mb-4 uppercase">Custom Hex</h3>
+                            <div class="flex items-center gap-2">
+                                <input type="color" id="custom-color-picker" class="w-8 h-8 rounded bg-transparent border-0 cursor-pointer p-0" value="#ff0000">
+                                <input type="text" id="custom-color-hex" class="bg-black/50 border border-white/10 rounded px-3 py-1.5 text-sm w-full font-mono text-gray-300" value="#FF0000">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel: Finish -->
+                    <div id="panel-finish" class="config-panel hidden">
+                        <h3 class="text-xs font-semibold text-gray-400 tracking-wider mb-4 uppercase">Paint Finish</h3>
+                        <div class="flex flex-col gap-3">
+                            <button class="finish-btn px-4 py-3 rounded-lg text-left flex flex-col gap-1" data-finish="gloss">
+                                <span class="font-medium text-sm">Gloss</span>
+                                <span class="text-xs text-gray-400">Highly reflective premium clearcoat.</span>
+                            </button>
+                            <button class="finish-btn px-4 py-3 rounded-lg text-left flex flex-col gap-1" data-finish="matte">
+                                <span class="font-medium text-sm">Matte</span>
+                                <span class="text-xs text-gray-400">Low-reflection smooth surface.</span>
+                            </button>
+                            <button class="finish-btn px-4 py-3 rounded-lg text-left flex flex-col gap-1" data-finish="metallic">
+                                <span class="font-medium text-sm">Metallic</span>
+                                <span class="text-xs text-gray-400">Embedded metal flakes for dynamic highlights.</span>
+                            </button>
+                            <button class="finish-btn px-4 py-3 rounded-lg text-left flex flex-col gap-1" data-finish="pearl">
+                                <span class="font-medium text-sm">Pearl</span>
+                                <span class="text-xs text-gray-400">Luxurious multi-layered iridescent effect.</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Panel: Materials (Advanced) -->
+                    <div id="panel-materials" class="config-panel hidden">
+                        <h3 class="text-xs font-semibold text-gray-400 tracking-wider mb-4 uppercase">Advanced Settings</h3>
+                        
+                        <div class="space-y-5">
+                            <div>
+                                <div class="flex justify-between text-xs mb-2">
+                                    <span class="text-gray-300">Roughness</span>
+                                    <span id="val-roughness" class="text-gray-500 font-mono">0.20</span>
+                                </div>
+                                <input type="range" id="slider-roughness" min="0" max="1" step="0.01" value="0.2">
+                            </div>
+                            
+                            <div>
+                                <div class="flex justify-between text-xs mb-2">
+                                    <span class="text-gray-300">Metalness</span>
+                                    <span id="val-metalness" class="text-gray-500 font-mono">0.80</span>
+                                </div>
+                                <input type="range" id="slider-metalness" min="0" max="1" step="0.01" value="0.8">
+                            </div>
+                            
+                            <div>
+                                <div class="flex justify-between text-xs mb-2">
+                                    <span class="text-gray-300">Clearcoat</span>
+                                    <span id="val-clearcoat" class="text-gray-500 font-mono">1.00</span>
+                                </div>
+                                <input type="range" id="slider-clearcoat" min="0" max="1" step="0.01" value="1.0">
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between text-xs mb-2">
+                                    <span class="text-gray-300">Clearcoat Roughness</span>
+                                    <span id="val-cc-roughness" class="text-gray-500 font-mono">0.05</span>
+                                </div>
+                                <input type="range" id="slider-cc-roughness" min="0" max="1" step="0.01" value="0.05">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel: Environment -->
+                    <div id="panel-environment" class="config-panel hidden">
+                        <h3 class="text-xs font-semibold text-gray-400 tracking-wider mb-4 uppercase">Studio Lighting</h3>
+                        <div class="flex flex-col gap-3">
+                            <button class="env-btn border border-blue-500 bg-blue-500/10 px-4 py-3 rounded-lg text-left" data-env="studio">
+                                <span class="font-medium text-sm block">Bright Studio</span>
+                                <span class="text-xs text-gray-400">Clean, neutral showroom lighting.</span>
+                            </button>
+                            <button class="env-btn border border-white/10 bg-white/5 px-4 py-3 rounded-lg text-left hover:bg-white/10" data-env="dark">
+                                <span class="font-medium text-sm block">Dark Studio</span>
+                                <span class="text-xs text-gray-400">Dramatic contrast and reflections.</span>
+                            </button>
+                            <button class="env-btn border border-white/10 bg-white/5 px-4 py-3 rounded-lg text-left hover:bg-white/10" data-env="sunset">
+                                <span class="font-medium text-sm block">Sunset</span>
+                                <span class="text-xs text-gray-400">Warm, low-angle directional light.</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Panel: Saved Configs -->
+                    <div id="panel-configs" class="config-panel hidden flex flex-col h-full">
+                        <h3 class="text-xs font-semibold text-gray-400 tracking-wider mb-4 uppercase">Saved Configurations</h3>
+                        <div id="saved-configs-list" class="flex-1 overflow-y-auto space-y-2 pr-2">
+                            <p class="text-sm text-gray-500 italic text-center mt-10">No saved configurations.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </aside>
+            
+            <!-- Quick Selection Banner -->
+            <div id="selection-banner" class="absolute top-4 left-1/2 -translate-x-1/2 interactive glass-panel px-6 py-2 rounded-full hidden items-center gap-3 transition-opacity">
+                <i data-lucide="check-circle-2" class="text-green-400 w-5 h-5"></i>
+                <div class="text-sm">
+                    <span class="text-gray-400">Selected Material:</span>
+                    <span id="selection-name" class="font-semibold text-white ml-1">None</span>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Bottom Bar -->
+        <footer class="interactive mb-4 mx-4 flex justify-center">
+            <div class="glass-panel rounded-full px-6 py-3 flex items-center gap-2 sm:gap-6 overflow-x-auto max-w-full no-scrollbar">
+                
+                <button class="cam-btn text-gray-400 hover:text-white transition flex flex-col items-center gap-1 min-w-[48px]" data-cam="front">
+                    <i data-lucide="align-horizontal-space-around" class="w-4 h-4"></i>
+                    <span class="text-[10px] uppercase font-medium">Front</span>
+                </button>
+                <button class="cam-btn text-gray-400 hover:text-white transition flex flex-col items-center gap-1 min-w-[48px]" data-cam="rear">
+                    <i data-lucide="align-horizontal-justify-center" class="w-4 h-4"></i>
+                    <span class="text-[10px] uppercase font-medium">Rear</span>
+                </button>
+                <button class="cam-btn text-gray-400 hover:text-white transition flex flex-col items-center gap-1 min-w-[48px]" data-cam="side">
+                    <i data-lucide="car" class="w-4 h-4"></i>
+                    <span class="text-[10px] uppercase font-medium">Side</span>
+                </button>
+                <button class="cam-btn text-gray-400 hover:text-white transition flex flex-col items-center gap-1 min-w-[48px]" data-cam="top">
+                    <i data-lucide="align-vertical-space-around" class="w-4 h-4"></i>
+                    <span class="text-[10px] uppercase font-medium">Top</span>
+                </button>
+                
+                <div class="w-px h-8 bg-white/10 mx-2"></div>
+                
+                <button id="btn-fit-camera" class="text-gray-400 hover:text-white transition flex flex-col items-center gap-1 min-w-[48px]">
+                    <i data-lucide="focus" class="w-4 h-4"></i>
+                    <span class="text-[10px] uppercase font-medium">Fit</span>
+                </button>
+                
+                <button id="btn-autorotate" class="text-gray-400 hover:text-white transition flex flex-col items-center gap-1 min-w-[48px]">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                    <span class="text-[10px] uppercase font-medium">360°</span>
+                </button>
+                <button id="btn-screenshot" class="text-blue-400 hover:text-blue-300 transition flex flex-col items-center gap-1 min-w-[48px]">
+                    <i data-lucide="camera" class="w-4 h-4"></i>
+                    <span class="text-[10px] uppercase font-medium">Capture</span>
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-ar" class="fixed inset-0 bg-black/80 z-50 interactive hidden flex items-center justify-center backdrop-blur-sm transition-opacity">
+        <div class="bg-[#111] border border-white/10 rounded-xl p-8 max-w-sm w-full shadow-2xl relative">
+            <button class="close-modal absolute top-4 right-4 text-gray-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            <div class="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mb-6 mx-auto border border-blue-500/30">
+                <i data-lucide="scan-line" class="w-8 h-8 text-blue-500"></i>
+            </div>
+            <h3 class="text-xl font-semibold text-center mb-2">View in Your Space</h3>
+            <p class="text-sm text-gray-400 text-center mb-6">AR functionality allows projecting the current 3D configuration into your environment via WebXR.</p>
+            <button class="close-modal w-full py-3 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-medium transition">Close</button>
+        </div>
+    </div>
+
+    <div id="toast-container" class="fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+        // --- Data ---
+        const COLORS = [
+            { name: 'Obsidian Black', hex: '#111111' },
+            { name: 'Pearl White', hex: '#f0f0f0' },
+            { name: 'Racing Red', hex: '#a30000' },
+            { name: 'Deep Blue', hex: '#001b4a' },
+            { name: 'Liquid Silver', hex: '#888888' },
+            { name: 'Speed Yellow', hex: '#d4af37' },
+            { name: 'Nardo Gray', hex: '#58595a' },
+            { name: 'British Racing', hex: '#004225' }
+        ];
+
+        const FINISHES = {
+            gloss: { roughness: 0.15, metalness: 0.2, clearcoat: 1.0, clearcoatRoughness: 0.05 },
+            matte: { roughness: 0.7, metalness: 0.1, clearcoat: 0.0, clearcoatRoughness: 0.0 },
+            metallic: { roughness: 0.25, metalness: 0.8, clearcoat: 1.0, clearcoatRoughness: 0.1 },
+            pearl: { roughness: 0.2, metalness: 0.4, clearcoat: 1.0, clearcoatRoughness: 0.1 }
+        };
+
+        const STATE = {
+            environment: 'studio',
+            autoRotate: false,
+            
+            // Single Source of Truth for Models
+            activeVehicleModel: null,
+            activeModelSource: null,
+            currentVehicleName: '',
+            
+            isPickingMode: false,
+            cameraTransitioning: false,
+            
+            // Shared Paint State
+            colorHex: '#ff0000',
+            finish: 'gloss',
+            roughness: FINISHES.gloss.roughness,
+            metalness: FINISHES.gloss.metalness,
+            clearcoat: FINISHES.gloss.clearcoat,
+            clearcoatRoughness: FINISHES.gloss.clearcoatRoughness
+        };
+
+        class CarStudioApp {
+            constructor() {
+                this.materialsMap = new Map(); 
+                this.activeMaterial = null; 
+                this.objectUrlRevokeQueue = []; 
+                
+                // Advanced Body Paint Cache & Restore system
+                this.bodyPaintMaterials = new Set(); 
+                this.originalMaterialStates = new Map();
+
+                this.initDOM();
+                this.initThree();
+                this.bindEvents();
+                lucide.createIcons();
+            }
+
+            initDOM() {
+                this.canvasContainer = document.getElementById('webgl-container');
+                this.uiLayer = document.getElementById('ui-layer');
+                this.modalLibrary = document.getElementById('modal-library');
+                this.loadingScreen = document.getElementById('loading-screen');
+                this.btnCancelLoad = document.getElementById('btn-cancel-load');
+                
+                // Color UI
+                this.colorGrid = document.getElementById('color-grid');
+                COLORS.forEach((color, index) => {
+                    const btn = document.createElement('button');
+                    btn.className = `color-swatch`;
+                    btn.style.backgroundColor = color.hex;
+                    btn.title = color.name;
+                    btn.dataset.hex = color.hex;
+                    this.colorGrid.appendChild(btn);
+                });
+                this.colorBtns = document.querySelectorAll('.color-swatch');
+                
+                // Inputs
+                this.sliders = {
+                    roughness: document.getElementById('slider-roughness'),
+                    metalness: document.getElementById('slider-metalness'),
+                    clearcoat: document.getElementById('slider-clearcoat'),
+                    ccRoughness: document.getElementById('slider-cc-roughness')
+                };
+                this.values = {
+                    roughness: document.getElementById('val-roughness'),
+                    metalness: document.getElementById('val-metalness'),
+                    clearcoat: document.getElementById('val-clearcoat'),
+                    ccRoughness: document.getElementById('val-cc-roughness')
+                };
+            }
+
+            initThree() {
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); 
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                this.canvasContainer.appendChild(this.renderer.domElement);
+
+                this.scene = new THREE.Scene();
+                
+                this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+                this.camera.position.set(6, 2, 6);
+                
+                this.targetCameraPos = new THREE.Vector3().copy(this.camera.position);
+                this.targetControlsTarget = new THREE.Vector3(0, 0.5, 0);
+
+                this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+                this.controls.enableDamping = true;
+                this.controls.dampingFactor = 0.05;
+                this.controls.minDistance = 2;
+                this.controls.maxDistance = 25;
+                this.controls.maxPolarAngle = Math.PI / 2 + 0.1;
+                
+                // If the user manually interacts, immediately stop any programmatic camera transition
+                this.controls.addEventListener('start', () => {
+                    STATE.cameraTransitioning = false;
+                });
+
+                this.raycaster = new THREE.Raycaster();
+                this.mouse = new THREE.Vector2();
+
+                this.setupLighting();
+                window.addEventListener('resize', () => this.onWindowResize());
+                this.renderer.setAnimationLoop(() => this.animate());
+            }
+
+            setupLighting() {
+                // DO NOT touch camera state here. This guarantees environment changes won't move the car.
+                
+                const lights = this.scene.children.filter(c => c.isLight);
+                lights.forEach(l => this.scene.remove(l));
+                this.scene.add(new THREE.AmbientLight(0xffffff, 0.2));
+
+                if (STATE.environment === 'studio' || STATE.environment === 'dark') {
+                    const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
+                    pmremGenerator.compileEquirectangularShader();
+                    const roomEnv = new RoomEnvironment();
+                    this.scene.environment = pmremGenerator.fromScene(roomEnv).texture;
+                    
+                    if (STATE.environment === 'studio') {
+                        this.scene.background = new THREE.Color('#1a1a1c');
+                        this.scene.fog = new THREE.Fog('#1a1a1c', 15, 50);
+                        this.renderer.toneMappingExposure = 1.2;
+                        const dirLight = new THREE.DirectionalLight(0xffffff, 2);
+                        dirLight.position.set(5, 10, 5);
+                        dirLight.castShadow = true;
+                        dirLight.shadow.mapSize.set(2048, 2048);
+                        this.scene.add(dirLight);
+                    } else {
+                        this.scene.background = new THREE.Color('#050505');
+                        this.scene.fog = new THREE.Fog('#050505', 15, 50);
+                        this.renderer.toneMappingExposure = 0.8;
+                        const spotLight = new THREE.SpotLight(0xffffff, 80);
+                        spotLight.position.set(0, 8, 0);
+                        spotLight.angle = Math.PI/4;
+                        spotLight.castShadow = true;
+                        this.scene.add(spotLight);
+                    }
+                } else if (STATE.environment === 'sunset') {
+                    this.scene.environment = null;
+                    this.scene.background = new THREE.Color('#2a1510');
+                    this.scene.fog = new THREE.Fog('#2a1510', 10, 40);
+                    this.renderer.toneMappingExposure = 1.0;
+                    
+                    const sunsetLight = new THREE.DirectionalLight(0xffaa55, 3);
+                    sunsetLight.position.set(-10, 2, -10);
+                    sunsetLight.castShadow = true;
+                    this.scene.add(sunsetLight);
+                    this.scene.add(new THREE.DirectionalLight(0x5588ff, 0.5)).position.set(10, 5, 10);
+                }
+
+                if (!this.ground) {
+                    const groundGeo = new THREE.PlaneGeometry(200, 200);
+                    const groundMat = new THREE.ShadowMaterial({ opacity: 0.6 });
+                    this.ground = new THREE.Mesh(groundGeo, groundMat);
+                    this.ground.rotation.x = -Math.PI / 2;
+                    this.ground.receiveShadow = true;
+                    this.scene.add(this.ground);
+                    
+                    const grid = new THREE.GridHelper(40, 40, 0xffffff, 0xffffff);
+                    grid.material.opacity = 0.05;
+                    grid.material.transparent = true;
+                    this.scene.add(grid);
+                }
+            }
+
+            // --- Loading & Lifecycle ---
+
+            showLoader(title, text) {
+                this.modalLibrary.style.display = 'none';
+                document.getElementById('loading-title').innerText = title;
+                document.getElementById('loading-text').innerText = text;
+                document.getElementById('loading-bar').style.width = '0%';
+                
+                this.btnCancelLoad.classList.remove('hidden');
+                
+                this.loadingScreen.classList.remove('hidden');
+                this.loadingScreen.style.opacity = '1';
+                this.uiLayer.style.display = 'none';
+                this.uiLayer.style.opacity = '0';
+            }
+
+            hideLoader() {
+                document.getElementById('loading-bar').style.width = '100%';
+                setTimeout(() => {
+                    this.loadingScreen.style.opacity = '0';
+                    setTimeout(() => {
+                        this.loadingScreen.classList.add('hidden');
+                        
+                        // If we have an active model, show UI. If not, reopen library.
+                        if (STATE.activeVehicleModel) {
+                            this.uiLayer.style.display = 'flex';
+                            void this.uiLayer.offsetWidth; // trigger reflow
+                            this.uiLayer.style.opacity = '1';
+                        } else {
+                            this.modalLibrary.style.display = 'flex';
+                        }
+                        
+                    }, 400);
+                }, 400);
+            }
+
+            disposeCurrentModel() {
+                if (!STATE.activeVehicleModel) return;
+                
+                this.scene.remove(STATE.activeVehicleModel);
+                
+                STATE.activeVehicleModel.traverse(child => {
+                    if (child.isMesh) {
+                        if(child.geometry) child.geometry.dispose();
+                        if (Array.isArray(child.material)) {
+                            child.material.forEach(m => {
+                                if(m.map) m.map.dispose();
+                                m.dispose();
+                            });
+                        } else if (child.material) {
+                            if(child.material.map) child.material.map.dispose();
+                            child.material.dispose();
+                        }
+                    }
+                });
+                
+                STATE.activeVehicleModel = null;
+                this.materialsMap.clear();
+                this.activeMaterial = null;
+                this.bodyPaintMaterials.clear();
+                this.originalMaterialStates.clear();
+                
+                // Safely revoke all created Object URLs
+                this.objectUrlRevokeQueue.forEach(url => URL.revokeObjectURL(url));
+                this.objectUrlRevokeQueue = [];
+            }
+
+            loadModel(sourceUrl, name, sourceType = 'library') {
+                if (!sourceUrl && sourceType !== 'fallback') return;
+
+                this.showLoader('IMPORTING 3D ASSET', 'Fetching geometries and textures...');
+                
+                if (sourceType === 'fallback') {
+                    setTimeout(() => {
+                        const fallbackScene = this.generateFallbackCar();
+                        this.setActiveVehicle(fallbackScene, name, sourceType);
+                    }, 500);
+                    return;
+                }
+
+                const loader = new GLTFLoader();
+                
+                try {
+                    loader.load(
+                        sourceUrl,
+                        (gltf) => {
+                            document.getElementById('loading-text').innerText = 'Optimizing materials...';
+                            this.setActiveVehicle(gltf.scene, name, sourceType);
+                        },
+                        (xhr) => {
+                            const percent = (xhr.loaded / xhr.total) * 100;
+                            if (isFinite(percent)) {
+                                document.getElementById('loading-bar').style.width = percent + '%';
+                            }
+                        },
+                        (error) => {
+                            console.error("Model load error:", error);
+                            if (sourceType === 'library') {
+                                this.showToast(`Preloaded model (${name}) not found. Loading fallback...`);
+                                this.loadModel(null, 'Procedural Concept', 'fallback');
+                            } else {
+                                this.showToast("Error loading model. The file might be corrupted or unsupported.");
+                                this.hideLoader();
+                            }
+                        }
+                    );
+                } catch(e) {
+                    if (sourceType === 'library') {
+                        this.showToast("Invalid environment. Loading fallback...");
+                        this.loadModel(null, 'Procedural Concept', 'fallback');
+                    } else {
+                        this.showToast("Invalid local URL environment. Could not read file.");
+                        this.hideLoader();
+                    }
+                }
+            }
+            
+            // --- Custom Upload Logic via FileReader API ---
+            handleFiles(files) {
+                if(!files || files.length === 0) return;
+                const file = files[0];
+                
+                // Safely extract the extension
+                const filename = file.name;
+                const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
+                
+                if (ext !== '.glb' && ext !== '.gltf') {
+                    return this.showToast('Unsupported file format. Please select a GLB or GLTF file.');
+                }
+                
+                if (file.size === 0) {
+                    return this.showToast('The selected file is empty.');
+                }
+
+                console.log('Selected file:', file.name);
+                console.log('File size:', file.size);
+                console.log('File type:', file.type);
+                console.log('File extension:', ext);
+
+                this.showLoader('IMPORTING 3D ASSET', 'Reading file data...');
+
+                const reader = new FileReader();
+                
+                reader.onload = (event) => {
+                    const arrayBuffer = event.target.result;
+                    this.parseUploadedModel(arrayBuffer, file.name, ext);
+                };
+                
+                reader.onerror = (error) => {
+                    console.error('FileReader error:', error);
+                    this.showToast('Unable to load this 3D model. Please try another GLB file.');
+                    this.hideLoader();
+                };
+
+                reader.readAsArrayBuffer(file);
+            }
+
+            parseUploadedModel(arrayBuffer, filename, ext) {
+                console.log('Starting GLB/GLTF parse...');
+                document.getElementById('loading-text').innerText = 'Parsing 3D Model...';
+                document.getElementById('loading-bar').style.width = '50%';
+
+                const loader = new GLTFLoader();
+                
+                try {
+                    loader.parse(
+                        arrayBuffer,
+                        '', // Path used to resolve external dependencies (empty string for local uploads)
+                        (gltf) => {
+                            console.log('Model parsed successfully:', gltf);
+                            console.log('Scene:', gltf.scene);
+                            
+                            if (!gltf || !gltf.scene) {
+                                console.error('GLTF scene is missing in parsed data');
+                                this.showToast('The 3D model could not be parsed. Please verify that the GLB/GLTF file is valid.');
+                                this.hideLoader();
+                                return;
+                            }
+                            
+                            document.getElementById('loading-bar').style.width = '100%';
+                            document.getElementById('loading-text').innerText = 'Optimizing materials...';
+                            
+                            // setActiveVehicle safely handles cleaning up the previous model
+                            this.setActiveVehicle(gltf.scene, filename, 'uploaded');
+                        },
+                        (error) => {
+                            console.error('GLB/GLTF parsing failed:', error);
+                            const errorMsg = error.message || '';
+                            if (ext === '.gltf' && (errorMsg.includes('fetch') || errorMsg.includes('Unexpected token') || errorMsg.includes('404') || errorMsg.includes('load'))) {
+                                this.showToast('This GLTF file requires external textures or BIN files. Try using a GLB file.');
+                            } else {
+                                this.showToast('The 3D model could not be parsed. Please verify that the GLB/GLTF file is valid.');
+                            }
+                            this.hideLoader();
+                        }
+                    );
+                } catch (error) {
+                    console.error('Unknown loading error:', error);
+                    this.showToast('Unable to load this 3D model. Please try another GLB file.');
+                    this.hideLoader();
+                }
+            }
+            
+            // Central Source of Truth - Applies the explicitly selected/uploaded model
+            setActiveVehicle(modelScene, name, source) {
+                // Completely clear out the old vehicle only on success of new vehicle load
+                this.disposeCurrentModel();
+                
+                STATE.activeVehicleModel = modelScene;
+                STATE.activeModelSource = source;
+                STATE.currentVehicleName = name;
+
+                document.getElementById('current-vehicle-name').innerText = name;
+                document.getElementById('current-vehicle-source').innerText = source === 'uploaded' ? 'Uploaded Model' : 'Preloaded Model';
+
+                this.processLoadedModel();
+                this.frameCameraToModel();
+                
+                this.showToast(`${name} loaded successfully`);
+                this.hideLoader();
+            }
+
+            processLoadedModel() {
+                if (!STATE.activeVehicleModel) return;
+
+                // 1. Process Meshes & Upgrade Materials
+                STATE.activeVehicleModel.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                        
+                        const mats = Array.isArray(child.material) ? child.material : [child.material];
+                        
+                        mats.forEach((mat, i) => {
+                            if (!mat.isMeshPhysicalMaterial) {
+                                // CRITICAL FIX: Prevent crash when upgrading Basic/Standard materials.
+                                if (!mat.color) mat.color = new THREE.Color(0xffffff);
+                                if (!mat.emissive) mat.emissive = new THREE.Color(0x000000);
+                                if (!mat.normalScale) mat.normalScale = new THREE.Vector2(1, 1);
+                                if (!mat.clearcoatNormalScale) mat.clearcoatNormalScale = new THREE.Vector2(1, 1);
+                                if (!mat.iridescenceThicknessRange) mat.iridescenceThicknessRange = new THREE.Vector2(100, 400);
+
+                                const newMat = new THREE.MeshPhysicalMaterial();
+                                newMat.copy(mat);
+                                newMat.envMapIntensity = 1.2;
+                                
+                                if (Array.isArray(child.material)) child.material[i] = newMat;
+                                else child.material = newMat;
+                                
+                                mat = newMat;
+                            }
+                            
+                            if (!this.materialsMap.has(mat.uuid)) {
+                                this.materialsMap.set(mat.uuid, {
+                                    name: mat.name || `Material_${this.materialsMap.size + 1}`,
+                                    material: mat
+                                });
+
+                                // Cache the original state to allow for configuration resets
+                                this.originalMaterialStates.set(mat.uuid, {
+                                    color: mat.color.clone(),
+                                    roughness: mat.roughness,
+                                    metalness: mat.metalness,
+                                    clearcoat: mat.clearcoat,
+                                    clearcoatRoughness: mat.clearcoatRoughness,
+                                    iridescence: mat.iridescence,
+                                    iridescenceIOR: mat.iridescenceIOR,
+                                    iridescenceThicknessRange: mat.iridescenceThicknessRange ? mat.iridescenceThicknessRange.clone() : undefined
+                                });
+
+                                // Smart Auto-Detect Body Paint Materials
+                                const name = (mat.name || '').toLowerCase();
+                                const isExcluded = name.includes('glass') || name.includes('window') || name.includes('tire') || name.includes('tyre') || name.includes('wheel') || name.includes('interior') || name.includes('chrome') || name.includes('light') || name.includes('brake') || name.includes('seat') || name.includes('carbon') || name.includes('grille');
+                                const isIncluded = name.includes('paint') || name.includes('body') || name.includes('shell') || name.includes('exterior') || name.includes('panel');
+                                
+                                if (isIncluded && !isExcluded) {
+                                    this.bodyPaintMaterials.add(mat);
+                                }
+                            }
+                        });
+                    }
+                });
+
+                // 2. Center and Scale the model natively
+                const box = new THREE.Box3().setFromObject(STATE.activeVehicleModel);
+                const size = box.getSize(new THREE.Vector3());
+                const center = box.getCenter(new THREE.Vector3());
+                
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const targetSize = 5; 
+                const scale = targetSize / (maxDim || 1); // Avoid division by zero
+                STATE.activeVehicleModel.scale.setScalar(scale);
+
+                box.setFromObject(STATE.activeVehicleModel);
+                box.getCenter(center);
+
+                STATE.activeVehicleModel.position.sub(center);
+                STATE.activeVehicleModel.position.y += (box.max.y - box.min.y) / 2; // ground
+                
+                this.scene.add(STATE.activeVehicleModel);
+
+                // 3. Build Material UI
+                this.buildMaterialListUI();
+
+                // 4. Auto-select sensible default material
+                let defaultMat = null;
+                if (this.bodyPaintMaterials.size > 0) {
+                    defaultMat = this.bodyPaintMaterials.values().next().value;
+                } else if (this.materialsMap.size > 0) {
+                    // Fallback if no materials match body rules
+                    defaultMat = Array.from(this.materialsMap.values())[0].material;
+                }
+
+                if (defaultMat) {
+                    this.setActiveMaterial(defaultMat);
+                } else {
+                    document.getElementById('label-paint-target').innerText = 'None Selected';
+                }
+            }
+
+            // Exclusively called on load or when explicitly clicking "Fit Vehicle"
+            frameCameraToModel() {
+                if (!STATE.activeVehicleModel) return;
+
+                const box = new THREE.Box3().setFromObject(STATE.activeVehicleModel);
+                const size = box.getSize(new THREE.Vector3());
+                
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const camDist = maxDim * 1.5;
+                const targetY = (box.max.y - box.min.y) / 2;
+
+                this.targetCameraPos.set(camDist, maxDim * 0.5, camDist);
+                this.targetControlsTarget.set(0, targetY, 0);
+                
+                // Allow animation loop to lerp to the new target
+                STATE.cameraTransitioning = true;
+            }
+
+            buildMaterialListUI() {
+                const list = document.getElementById('materials-list');
+                list.innerHTML = '';
+                
+                if (this.materialsMap.size === 0) {
+                    list.innerHTML = '<p class="text-sm text-gray-500 italic text-center py-4">No editable materials found.</p>';
+                    return;
+                }
+
+                for (const [uuid, data] of this.materialsMap.entries()) {
+                    const btn = document.createElement('button');
+                    btn.className = 'material-item w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-sm';
+                    btn.dataset.uuid = uuid;
+                    
+                    const colorHex = '#' + data.material.color.getHexString();
+                    
+                    btn.innerHTML = `
+                        <span class="text-gray-300 truncate pr-2">${data.name}</span>
+                        <div class="w-4 h-4 rounded-full border border-white/20 shrink-0" style="background-color: ${colorHex}"></div>
+                    `;
+                    
+                    btn.addEventListener('click', () => {
+                        this.setActiveMaterial(data.material);
+                        document.querySelector('[data-target="panel-paint"]').click();
+                    });
+                    
+                    list.appendChild(btn);
+                }
+            }
+
+            setActiveMaterial(material) {
+                if (!material) return;
+                this.activeMaterial = material;
+                
+                document.querySelectorAll('.material-item').forEach(el => {
+                    el.classList.toggle('active', el.dataset.uuid === material.uuid);
+                });
+                
+                document.getElementById('label-paint-target').innerText = material.name || 'Selected Part';
+
+                const hex = '#' + material.color.getHexString();
+                document.getElementById('custom-color-picker').value = hex;
+                document.getElementById('custom-color-hex').value = hex.toUpperCase();
+                
+                this.colorBtns.forEach(b => {
+                    b.classList.toggle('active', b.dataset.hex.toLowerCase() === hex);
+                });
+
+                if(material.roughness !== undefined) {
+                    this.sliders.roughness.value = material.roughness;
+                    this.values.roughness.innerText = material.roughness.toFixed(2);
+                }
+                if(material.metalness !== undefined) {
+                    this.sliders.metalness.value = material.metalness;
+                    this.values.metalness.innerText = material.metalness.toFixed(2);
+                }
+                if(material.clearcoat !== undefined) {
+                    this.sliders.clearcoat.value = material.clearcoat;
+                    this.values.clearcoat.innerText = material.clearcoat.toFixed(2);
+                }
+                
+                document.querySelectorAll('.finish-btn').forEach(b => b.classList.remove('active'));
+
+                const banner = document.getElementById('selection-banner');
+                document.getElementById('selection-name').innerText = material.name || 'Selected Part';
+                banner.classList.remove('hidden');
+                setTimeout(() => banner.classList.add('hidden'), 3000);
+            }
+
+            // Global Applicator for Color & Finish
+            applyCurrentStateToBody() {
+                // Manual Fallback: if the user explicitly picked a missed material via raycaster/list, 
+                // add it to the body paint group to synchronize it with all future paint changes.
+                if (this.activeMaterial && !this.bodyPaintMaterials.has(this.activeMaterial)) {
+                    this.bodyPaintMaterials.add(this.activeMaterial);
+                }
+
+                const targetColor = new THREE.Color(STATE.colorHex);
+
+                this.bodyPaintMaterials.forEach(mat => {
+                    // Apply Color (Independent of finish)
+                    mat.color.copy(targetColor);
+                    
+                    // Apply Finish (Independent of color)
+                    mat.roughness = STATE.roughness;
+                    mat.metalness = STATE.metalness;
+                    mat.clearcoat = STATE.clearcoat;
+                    mat.clearcoatRoughness = STATE.clearcoatRoughness;
+
+                    // Handle Pearl specifically using iridescence
+                    if (STATE.finish === 'pearl' && mat.iridescence !== undefined) {
+                        mat.iridescence = 1.0;
+                        mat.iridescenceIOR = 1.5;
+                        if (!mat.iridescenceThicknessRange) {
+                            mat.iridescenceThicknessRange = new THREE.Vector2(100, 400);
+                        }
+                    } else if (mat.iridescence !== undefined) {
+                        mat.iridescence = 0.0;
+                    }
+                    
+                    mat.needsUpdate = true;
+
+                    // Update UI list swatches for all affected materials
+                    const btn = document.querySelector(`.material-item[data-uuid="${mat.uuid}"] div`);
+                    if (btn) btn.style.backgroundColor = '#' + targetColor.getHexString();
+                });
+            }
+
+            resetBodyPaint() {
+                this.bodyPaintMaterials.forEach(mat => {
+                    const orig = this.originalMaterialStates.get(mat.uuid);
+                    if (orig) {
+                        mat.color.copy(orig.color);
+                        mat.roughness = orig.roughness;
+                        mat.metalness = orig.metalness;
+                        mat.clearcoat = orig.clearcoat;
+                        mat.clearcoatRoughness = orig.clearcoatRoughness;
+                        mat.iridescence = orig.iridescence;
+                        mat.iridescenceIOR = orig.iridescenceIOR;
+                        if (mat.iridescenceThicknessRange && orig.iridescenceThicknessRange) {
+                            mat.iridescenceThicknessRange.copy(orig.iridescenceThicknessRange);
+                        }
+                        mat.needsUpdate = true;
+                        
+                        const btn = document.querySelector(`.material-item[data-uuid="${mat.uuid}"] div`);
+                        if (btn) btn.style.backgroundColor = '#' + orig.color.getHexString();
+                    }
+                });
+                this.showToast('Original material appearance restored');
+            }
+
+            // --- Interaction & UI Bindings ---
+
+            bindEvents() {
+                // Loading cancel
+                this.btnCancelLoad.addEventListener('click', () => {
+                    this.hideLoader();
+                });
+
+                // Library Overlay
+                document.getElementById('btn-library').addEventListener('click', () => {
+                    this.modalLibrary.style.display = 'flex';
+                    // Allow closing if a car is already loaded
+                    if (STATE.activeVehicleModel) {
+                        document.getElementById('btn-close-library').classList.remove('hidden'); 
+                    }
+                });
+                
+                document.getElementById('btn-close-library').addEventListener('click', () => {
+                    this.modalLibrary.style.display = 'none';
+                });
+
+                // Preloaded selection
+                document.querySelectorAll('.lib-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const type = btn.dataset.type;
+                        if(type === 'preloaded') {
+                            const url = btn.dataset.url || './assets/models/car.glb';
+                            const name = btn.dataset.name || 'Preloaded Model';
+                            this.loadModel(url, name, 'library');
+                        } else {
+                            this.loadModel(null, 'Procedural Concept', 'fallback');
+                        }
+                    });
+                });
+
+                // Drag and Drop Upload 
+                const dropzone = document.getElementById('dropzone');
+                const fileInput = document.getElementById('file-upload');
+
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    dropzone.addEventListener(eventName, preventDefaults, false);
+                });
+                function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    dropzone.addEventListener(eventName, () => dropzone.classList.add('dragover'), false);
+                });
+                ['dragleave', 'drop'].forEach(eventName => {
+                    dropzone.addEventListener(eventName, () => dropzone.classList.remove('dragover'), false);
+                });
+
+                dropzone.addEventListener('drop', (e) => this.handleFiles(e.dataTransfer.files));
+                fileInput.addEventListener('change', (e) => this.handleFiles(e.target.files));
+
+                // Tabs
+                document.querySelectorAll('.nav-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                        item.classList.add('active');
+                        document.querySelectorAll('.config-panel').forEach(p => p.classList.add('hidden'));
+                        document.getElementById(item.dataset.target).classList.remove('hidden');
+                    });
+                });
+
+                // Object Picking
+                const btnPicker = document.getElementById('btn-picker');
+                const pickerHint = document.getElementById('picker-hint');
+                
+                btnPicker.addEventListener('click', () => {
+                    STATE.isPickingMode = !STATE.isPickingMode;
+                    if (STATE.isPickingMode) {
+                        btnPicker.classList.replace('bg-blue-500/10', 'bg-blue-500');
+                        btnPicker.classList.replace('text-blue-400', 'text-white');
+                        pickerHint.classList.remove('hidden');
+                        this.renderer.domElement.classList.add('picking-mode');
+                        this.showToast('Click a part on the 3D model');
+                    } else {
+                        btnPicker.classList.replace('bg-blue-500', 'bg-blue-500/10');
+                        btnPicker.classList.replace('text-white', 'text-blue-400');
+                        pickerHint.classList.add('hidden');
+                        this.renderer.domElement.classList.remove('picking-mode');
+                    }
+                });
+
+                this.renderer.domElement.addEventListener('pointerdown', (e) => this.onPointerDown(e));
+
+                // Editing Materials (Now applies to entire body paint group)
+                this.colorBtns.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const hex = btn.dataset.hex;
+                        document.getElementById('custom-color-picker').value = hex;
+                        document.getElementById('custom-color-hex').value = hex.toUpperCase();
+                        this.colorBtns.forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        
+                        STATE.colorHex = hex;
+                        this.applyCurrentStateToBody();
+                    });
+                });
+
+                document.getElementById('custom-color-picker').addEventListener('input', (e) => {
+                    const hex = e.target.value;
+                    document.getElementById('custom-color-hex').value = hex.toUpperCase();
+                    this.colorBtns.forEach(b => b.classList.remove('active'));
+                    
+                    STATE.colorHex = hex;
+                    this.applyCurrentStateToBody();
+                });
+
+                document.querySelectorAll('.finish-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.finish-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        
+                        const type = btn.dataset.finish;
+                        const props = FINISHES[type];
+                        
+                        STATE.finish = type;
+                        STATE.roughness = props.roughness;
+                        STATE.metalness = props.metalness;
+                        STATE.clearcoat = props.clearcoat;
+                        STATE.clearcoatRoughness = props.clearcoatRoughness;
+                        
+                        // Sync sliders to new state
+                        this.sliders.roughness.value = props.roughness;
+                        this.values.roughness.innerText = props.roughness.toFixed(2);
+                        this.sliders.metalness.value = props.metalness;
+                        this.values.metalness.innerText = props.metalness.toFixed(2);
+                        this.sliders.clearcoat.value = props.clearcoat;
+                        this.values.clearcoat.innerText = props.clearcoat.toFixed(2);
+                        
+                        this.applyCurrentStateToBody();
+                        this.showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} finish applied`);
+                    });
+                });
+
+                Object.keys(this.sliders).forEach(key => {
+                    this.sliders[key].addEventListener('input', (e) => {
+                        const val = parseFloat(e.target.value);
+                        this.values[key].innerText = val.toFixed(2);
+                        
+                        STATE[key] = val;
+                        document.querySelectorAll('.finish-btn').forEach(b => b.classList.remove('active'));
+                        STATE.finish = 'custom';
+                        
+                        this.applyCurrentStateToBody();
+                    });
+                });
+
+                // Optional generic Reset bindings if UI exists
+                const resetBtn = document.getElementById('btn-reset-material');
+                if(resetBtn) resetBtn.addEventListener('click', () => this.resetBodyPaint());
+
+                // Environment
+                document.querySelectorAll('.env-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.env-btn').forEach(b => b.className = 'env-btn border border-white/10 bg-white/5 px-4 py-3 rounded-lg text-left hover:bg-white/10');
+                        btn.className = 'env-btn border border-blue-500 bg-blue-500/10 px-4 py-3 rounded-lg text-left';
+                        STATE.environment = btn.dataset.env;
+                        this.setupLighting(); // Calling this does NOT affect camera.
+                        this.showToast(`Environment: ${STATE.environment}`);
+                    });
+                });
+
+                // Camera Preset Views
+                document.querySelectorAll('.cam-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        STATE.autoRotate = false;
+                        this.controls.autoRotate = false;
+                        document.getElementById('btn-autorotate').classList.replace('text-blue-400', 'text-gray-400');
+
+                        const view = btn.dataset.cam;
+                        if (!STATE.activeVehicleModel) return;
+                        
+                        const box = new THREE.Box3().setFromObject(STATE.activeVehicleModel);
+                        const center = box.getCenter(new THREE.Vector3());
+                        const size = box.getSize(new THREE.Vector3());
+                        const maxD = Math.max(size.x, size.z);
+                        const dist = maxD * 1.5;
+                        
+                        switch(view) {
+                            case 'front': this.targetCameraPos.set(center.x, center.y + 0.5, center.z + dist); break;
+                            case 'rear': this.targetCameraPos.set(center.x, center.y + 0.5, center.z - dist); break;
+                            case 'side': this.targetCameraPos.set(center.x + dist, center.y + 0.5, center.z); break;
+                            case 'top': this.targetCameraPos.set(center.x, center.y + dist, center.z); break;
+                        }
+                        this.targetControlsTarget.copy(center);
+                        STATE.cameraTransitioning = true;
+                    });
+                });
+
+                // Explicit Camera Reframing Button
+                document.getElementById('btn-fit-camera').addEventListener('click', () => {
+                    this.frameCameraToModel();
+                    this.showToast("Camera Reset");
+                });
+
+                document.getElementById('btn-autorotate').addEventListener('click', (e) => {
+                    STATE.autoRotate = !STATE.autoRotate;
+                    this.controls.autoRotate = STATE.autoRotate;
+                    this.controls.autoRotateSpeed = 2.0;
+                    if(STATE.autoRotate) e.currentTarget.classList.replace('text-gray-400', 'text-blue-400');
+                    else e.currentTarget.classList.replace('text-blue-400', 'text-gray-400');
+                });
+
+                document.getElementById('btn-screenshot').addEventListener('click', () => this.takeScreenshot());
+                document.getElementById('btn-fullscreen').addEventListener('click', () => {
+                    if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(err=>{});
+                    else document.exitFullscreen();
+                });
+
+                // AR Modal
+                const arModal = document.getElementById('modal-ar');
+                document.getElementById('btn-ar').addEventListener('click', () => arModal.classList.remove('hidden'));
+                document.querySelectorAll('.close-modal').forEach(b => b.addEventListener('click', () => arModal.classList.add('hidden')));
+            }
+
+            // --- Material Manipulation ---
+            // Removed updateActiveMaterialProperty since it only updated one mesh. 
+            // applyCurrentStateToBody handles synchronization safely.
+
+            onPointerDown(event) {
+                if (!STATE.isPickingMode || !STATE.activeVehicleModel) return;
+                if (event.target !== this.renderer.domElement) return;
+
+                this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+                this.raycaster.setFromCamera(this.mouse, this.camera);
+                const intersects = this.raycaster.intersectObject(STATE.activeVehicleModel, true);
+
+                if (intersects.length > 0) {
+                    const object = intersects[0].object;
+                    let mat = object.material;
+                    if(Array.isArray(mat)) mat = mat[0];
+                    
+                    if (mat && this.materialsMap.has(mat.uuid)) {
+                        this.setActiveMaterial(mat);
+                        document.getElementById('btn-picker').click();
+                        document.querySelector('[data-target="panel-paint"]').click();
+                    }
+                }
+            }
+
+            // --- Utilities ---
+            takeScreenshot() {
+                this.renderer.render(this.scene, this.camera);
+                const link = document.createElement('a');
+                link.download = `Studio_Capture_${Date.now()}.png`;
+                link.href = this.renderer.domElement.toDataURL('image/png');
+                link.click();
+                this.showToast('Screenshot saved');
+            }
+
+            showToast(message) {
+                const container = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                toast.className = 'bg-[#1a1a1c] border border-white/10 text-white px-4 py-2 rounded-lg shadow-xl text-sm flex items-center gap-2 toast-enter';
+                toast.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4 text-green-400"></i> ${message}`;
+                container.appendChild(toast);
+                lucide.createIcons({ root: toast });
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateY(100%)';
+                    toast.style.transition = 'all 0.3s ease';
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            }
+
+            onWindowResize() {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+
+            generateFallbackCar() {
+                const fallbackGroup = new THREE.Group();
+                const fakeMat = new THREE.MeshPhysicalMaterial({ color: 0x3b82f6, roughness: 0.2, metalness: 0.5, name: "Fallback_Paint" });
+                
+                const bodyShape = new THREE.Shape();
+                bodyShape.moveTo(-2.2, 0).lineTo(2.2, 0).bezierCurveTo(2.3, 0.3, 2.4, 0.4, 2.4, 0.6)
+                    .lineTo(1.8, 1.0).lineTo(0.5, 1.1).lineTo(-0.2, 1.5).lineTo(-1.2, 1.5)
+                    .lineTo(-2.0, 1.0).lineTo(-2.4, 0.8).lineTo(-2.2, 0);
+
+                const bodyGeo = new THREE.ExtrudeGeometry(bodyShape, { depth: 1.8, bevelEnabled: true, bevelSize: 0.1, bevelThickness: 0.1 });
+                bodyGeo.center();
+                const bodyMesh = new THREE.Mesh(bodyGeo, fakeMat);
+                bodyMesh.position.y = 0.8;
+                fallbackGroup.add(bodyMesh);
+
+                const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x000000, roughness: 0.1, transmission: 0.5, name: "Fallback_Glass" });
+                const windowMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 0.5, 1.7), glassMat);
+                windowMesh.position.set(-0.3, 1.4, 0);
+                fallbackGroup.add(windowMesh);
+                
+                return fallbackGroup;
+            }
+
+            animate() {
+                // Programmatic camera transitions are now isolated. They stop immediately if manual rotation occurs.
+                if (STATE.cameraTransitioning) {
+                    this.camera.position.lerp(this.targetCameraPos, 0.05);
+                    this.controls.target.lerp(this.targetControlsTarget, 0.05);
+                    
+                    if (this.camera.position.distanceTo(this.targetCameraPos) < 0.01) {
+                        STATE.cameraTransitioning = false;
+                    }
+                }
+                
+                this.controls.update();
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (!window.WebGLRenderingContext) {
+                document.body.innerHTML = '<div class="absolute inset-0 flex items-center justify-center bg-black text-white p-6 text-center"><h2>Your browser/device does not support the required WebGL features.</h2></div>';
+                return;
+            }
+            window.app = new CarStudioApp();
+        });
+    </script>
+</body>
+</html>
